@@ -4,14 +4,28 @@ body {
     background-color: #222;
     color: #ddd;
     font-family: 'Courier New', monospace;
+    box-sizing: border-box;
 }
+
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+
 #gameContainer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 100vh;
+    height: calc(100vh - 20px);
     position: relative;
 }
+
+#gameArea {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
 #scoreBoard {
     display: flex;
     justify-content: space-between;
@@ -20,6 +34,7 @@ body {
     margin-bottom: 10px;
     font-size: 18px;
 }
+
 canvas {
     border: 2px solid #4CAF50;
     max-width: 800px;
@@ -27,6 +42,11 @@ canvas {
     background-color: #111;
     cursor: none;
 }
+
+#mobileControls {
+    display: none;
+}
+
 #pauseMenu, #gameOverMenu, #mainMenu {
     position: absolute;
     top: 50%;
@@ -37,17 +57,21 @@ canvas {
     border-radius: 10px;
     text-align: center;
     display: none;
+    z-index: 10;
 }
+
 #mainMenu h1 {
     margin-top: 0;
     margin-bottom: 10px;
     color: #4CAF50;
 }
+
 #mainMenu p {
     margin: 4px 0;
     font-size: 14px;
     color: #bbb;
 }
+
 .menu-button {
     background-color: #4CAF50;
     border: none;
@@ -61,9 +85,11 @@ canvas {
     cursor: pointer;
     transition: background-color 0.3s;
 }
+
 .menu-button:hover {
     background-color: #45a049;
 }
+
 #hudOverlay {
     position: absolute;
     top: 40px;
@@ -78,11 +104,13 @@ canvas {
     padding: 0 12px;
     box-sizing: border-box;
 }
+
 #leftHud, #rightHud {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
+
 .bar-container {
     width: 200px;
     height: 12px;
@@ -91,27 +119,33 @@ canvas {
     overflow: hidden;
     background-color: #111;
 }
+
 .bar-fill {
     height: 100%;
     width: 100%;
     background: linear-gradient(90deg, #4CAF50, #8BC34A);
 }
+
 .bar-label {
     font-size: 12px;
     margin-bottom: 2px;
 }
+
 .hud-text-strong {
     font-weight: bold;
     color: #fff;
 }
+
 .hud-text-subtle {
     color: #aaa;
     font-size: 12px;
 }
+
 .controls-container {
     margin-top: 12px;
     text-align: left;
 }
+
 .controls-title {
     font-weight: bold;
     color: #fff;
@@ -119,8 +153,173 @@ canvas {
     text-transform: uppercase;
     font-size: 13px;
 }
+
 .controls-line {
     font-size: 13px;
     color: #ccc;
     white-space: nowrap;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+    }
+
+    body {
+        padding: 0;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    #gameContainer {
+        width: 100vw;
+        height: 100dvh;
+        align-items: stretch;
+    }
+
+    #gameArea {
+        flex: 0 0 50dvh;
+        height: 50dvh;
+        min-height: 0;
+        padding: 4px 4px 0;
+    }
+
+    #scoreBoard {
+        max-width: none;
+        margin-bottom: 4px;
+        padding: 0 4px;
+        font-size: clamp(11px, 3.2vw, 15px);
+        gap: 8px;
+    }
+
+    canvas {
+        width: 100%;
+        max-width: none;
+        max-height: none;
+        flex: 1;
+        min-height: 0;
+    }
+
+    #hudOverlay {
+        top: 26px;
+        max-width: none;
+        font-size: 11px;
+        padding: 0 10px;
+    }
+
+    .bar-container {
+        width: 100px;
+        height: 9px;
+    }
+
+    .bar-label {
+        font-size: 10px;
+    }
+
+    .hud-text-subtle {
+        font-size: 10px;
+    }
+
+    #mobileControls {
+        display: grid;
+        grid-template-columns: 1fr minmax(78px, 0.7fr) 1fr;
+        align-items: center;
+        gap: 10px;
+        flex: 1 1 50dvh;
+        height: 50dvh;
+        min-height: 0;
+        padding: 10px clamp(12px, 4vw, 24px) calc(14px + env(safe-area-inset-bottom));
+        background: #181818;
+        border-top: 2px solid #333;
+        touch-action: none;
+    }
+
+    .joystick-zone {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 0;
+        height: 100%;
+        touch-action: none;
+    }
+
+    .joystick-label {
+        color: #aaa;
+        font-size: 12px;
+        letter-spacing: 1px;
+    }
+
+    .joystick-base {
+        position: relative;
+        width: min(34vw, 150px);
+        height: min(34vw, 150px);
+        max-width: 42dvh;
+        max-height: 42dvh;
+        border: 2px solid #4CAF50;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(76, 175, 80, 0.22), rgba(20, 20, 20, 0.92));
+        box-shadow: inset 0 0 12px rgba(76, 175, 80, 0.25);
+        touch-action: none;
+    }
+
+    .joystick-knob {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 42%;
+        height: 42%;
+        border-radius: 50%;
+        background: #ddd;
+        border: 2px solid #111;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    #mobileButtons {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        gap: 10px;
+        height: 100%;
+    }
+
+    .control-button {
+        min-height: 44px;
+        border: 2px solid #4CAF50;
+        border-radius: 10px;
+        background: #2a2a2a;
+        color: #fff;
+        font-family: inherit;
+        font-size: clamp(12px, 3.4vw, 15px);
+        font-weight: bold;
+        touch-action: manipulation;
+    }
+
+    .control-button:active {
+        background: #4CAF50;
+    }
+
+    #pauseMenu, #gameOverMenu, #mainMenu {
+        width: min(92vw, 420px);
+        max-height: 92dvh;
+        overflow: auto;
+        padding: 16px;
+    }
+
+    .menu-button {
+        padding: 13px 24px;
+        min-width: 120px;
+    }
+
+    .controls-line {
+        white-space: normal;
+    }
 }
