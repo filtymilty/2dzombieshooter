@@ -2,32 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>2D Zombie Shooter</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="gameContainer">
-        <div id="scoreBoard">
-            <div id="score">Score: 0</div>
-            <div id="timer">0:00</div>
-            <div id="highScore">High Score: 0</div>
-        </div>
-        <canvas id="gameCanvas"></canvas>
-        <div id="hudOverlay">
-            <div id="leftHud">
-                <div class="bar-label">HEALTH</div>
-                <div class="bar-container">
-                    <div id="healthBar" class="bar-fill"></div>
+        <div id="gameArea">
+            <div id="scoreBoard">
+                <div id="score">Score: 0</div>
+                <div id="timer">0:00</div>
+                <div id="highScore">High Score: 0</div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+            <div id="hudOverlay">
+                <div id="leftHud">
+                    <div class="bar-label">HEALTH</div>
+                    <div class="bar-container">
+                        <div id="healthBar" class="bar-fill"></div>
+                    </div>
+                    <div class="bar-label">DASH</div>
+                    <div class="bar-container">
+                        <div id="dashBar" class="bar-fill"></div>
+                    </div>
                 </div>
-                <div class="bar-label">DASH</div>
-                <div class="bar-container">
-                    <div id="dashBar" class="bar-fill"></div>
+                <div id="rightHud">
+                    <div class="hud-text-strong" id="weaponInfo">Weapon: Pistol</div>
+                    <div class="hud-text-subtle" id="hintInfo"></div>
                 </div>
             </div>
-            <div id="rightHud">
-                <div class="hud-text-strong" id="weaponInfo">Weapon: Pistol</div>
-                <div class="hud-text-subtle" id="hintInfo"></div>
+        </div>
+        <div id="mobileControls" aria-label="Mobile controls">
+            <div class="joystick-zone" id="moveStickZone">
+                <div class="joystick-label">MOVE</div>
+                <div class="joystick-base">
+                    <div class="joystick-knob" id="moveStickKnob"></div>
+                </div>
+            </div>
+            <div id="mobileButtons">
+                <button id="mobileDashButton" class="control-button" type="button">Dash</button>
+                <button id="mobileWeaponButton" class="control-button" type="button">Weapon</button>
+                <button id="mobilePauseButton" class="control-button" type="button">Pause</button>
+            </div>
+            <div class="joystick-zone" id="shootStickZone">
+                <div class="joystick-label">SHOOT</div>
+                <div class="joystick-base">
+                    <div class="joystick-knob" id="shootStickKnob"></div>
+                </div>
             </div>
         </div>
         <div id="mainMenu">
@@ -36,12 +57,12 @@
             <button id="startButton" class="menu-button">Play</button>
             <div class="controls-container">
                 <div class="controls-title">Controls</div>
-                <div class="controls-line">WASD &mdash; Move</div>
-                <div class="controls-line">Mouse &mdash; Aim</div>
-                <div class="controls-line">Left Click &mdash; Shoot</div>
-                <div class="controls-line">Shift &mdash; Dash</div>
-                <div class="controls-line">Q &mdash; Switch weapon</div>
-                <div class="controls-line">Esc &mdash; Pause</div>
+                <div class="controls-line">WASD / Left Stick &mdash; Move</div>
+                <div class="controls-line">Mouse / Right Stick &mdash; Aim</div>
+                <div class="controls-line">Hold Left Click / Aim Stick &mdash; Auto-fire</div>
+                <div class="controls-line">Shift / Dash Button &mdash; Dash</div>
+                <div class="controls-line">Q / Weapon Button &mdash; Switch weapon</div>
+                <div class="controls-line">Esc / Pause Button &mdash; Pause</div>
             </div>
         </div>
         <div id="pauseMenu">
@@ -51,12 +72,12 @@
             <button id="pauseMainMenuButton" class="menu-button">Main Menu</button>
             <div class="controls-container">
                 <div class="controls-title">Controls</div>
-                <div class="controls-line">WASD &mdash; Move</div>
-                <div class="controls-line">Mouse &mdash; Aim</div>
-                <div class="controls-line">Left Click &mdash; Shoot</div>
-                <div class="controls-line">Shift &mdash; Dash</div>
-                <div class="controls-line">Q &mdash; Switch weapon</div>
-                <div class="controls-line">Esc &mdash; Pause</div>
+                <div class="controls-line">WASD / Left Stick &mdash; Move</div>
+                <div class="controls-line">Mouse / Right Stick &mdash; Aim</div>
+                <div class="controls-line">Hold Left Click / Aim Stick &mdash; Auto-fire</div>
+                <div class="controls-line">Shift / Dash Button &mdash; Dash</div>
+                <div class="controls-line">Q / Weapon Button &mdash; Switch weapon</div>
+                <div class="controls-line">Esc / Pause Button &mdash; Pause</div>
             </div>
         </div>
         <div id="gameOverMenu">
