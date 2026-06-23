@@ -9,6 +9,8 @@ const GAME_STATE = {
 const CONFIG = {
     canvasMaxWidth: 800,
     canvasMaxHeight: 600,
+    joystickDeadzone: 0.12,
+    aimDistance: 180,
     player: {
         size: 20,
         baseSpeed: 3,
@@ -82,17 +84,46 @@ const restartButton = document.getElementById('restartButton');
 const pauseRestartButton = document.getElementById('pauseRestartButton');
 const pauseMainMenuButton = document.getElementById('pauseMainMenuButton');
 const gameOverMainMenuButton = document.getElementById('gameOverMainMenuButton');
+const gameContainer = document.getElementById('gameContainer');
+const gameArea = document.getElementById('gameArea');
+const mobileControls = document.getElementById('mobileControls');
+const moveStickZone = document.getElementById('moveStickZone');
+const shootStickZone = document.getElementById('shootStickZone');
+const moveStickKnob = document.getElementById('moveStickKnob');
+const shootStickKnob = document.getElementById('shootStickKnob');
+const mobileDashButton = document.getElementById('mobileDashButton');
+const mobileWeaponButton = document.getElementById('mobileWeaponButton');
+const mobilePauseButton = document.getElementById('mobilePauseButton');
 
 let gameState = GAME_STATE.MENU;
+
+function isMobileControlsVisible() {
+    return mobileControls && window.getComputedStyle(mobileControls).display !== 'none';
+}
+
+function syncClientMouseToCanvasPoint(x, y) {
+    const rect = canvas.getBoundingClientRect();
+    clientMouseX = rect.left + x;
+    clientMouseY = rect.top + y;
+    mouseX = x;
+    mouseY = y;
+}
 
 function resizeCanvas() {
     const maxWidth = CONFIG.canvasMaxWidth;
     const maxHeight = CONFIG.canvasMaxHeight;
-    const containerWidth = document.getElementById('gameContainer').clientWidth;
-    const containerHeight = document.getElementById('gameContainer').clientHeight - document.getElementById('scoreBoard').clientHeight - 20;
+    const scoreBoardHeight = document.getElementById('scoreBoard').clientHeight;
+    const mobileLayout = isMobileControlsVisible();
 
-    let newWidth = Math.min(containerWidth, maxWidth);
-    let newHeight = Math.min(containerHeight, maxHeight);
+    const availableWidth = mobileLayout
+        ? gameArea.clientWidth - 8
+        : gameContainer.clientWidth;
+    const availableHeight = mobileLayout
+        ? gameArea.clientHeight - scoreBoardHeight - 8
+        : gameContainer.clientHeight - scoreBoardHeight - 20;
+
+    let newWidth = Math.min(Math.max(availableWidth, 240), maxWidth);
+    let newHeight = Math.min(Math.max(availableHeight, 180), maxHeight);
 
     if (newWidth / newHeight > maxWidth / maxHeight) {
         newWidth = newHeight * (maxWidth / maxHeight);
@@ -100,16 +131,22 @@ function resizeCanvas() {
         newHeight = newWidth / (maxWidth / maxHeight);
     }
 
-    canvas.width = newWidth;
-    canvas.height = newHeight;
+    canvas.width = Math.floor(newWidth);
+    canvas.height = Math.floor(newHeight);
+
+    player.x = Math.max(player.size / 2, Math.min(canvas.width - player.size / 2, player.x || canvas.width / 2));
+    player.y = Math.max(player.size / 2, Math.min(canvas.height - player.size / 2, player.y || canvas.height / 2));
+
+    if (!inputState.shootStick.active) {
+        syncClientMouseToCanvasPoint(canvas.width / 2, canvas.height / 2);
+    }
 }
 
 window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
 
 const player = {
-    x: canvas.width / 2,
-    y: canvas.height / 2,
+    x: CONFIG.canvasMaxWidth / 2,
+    y: CONFIG.canvasMaxHeight / 2,
     size: CONFIG.player.size,
     speed: CONFIG.player.baseSpeed,
     vx: 0,
@@ -121,6 +158,21 @@ const player = {
     dashCooldown: 0,
     invulnTimer: 0,
     color: '#00BFFF'
+};
+
+const inputState = {
+    keys: {},
+    mouseFireHeld: false,
+    moveStick: {
+        x: 0,
+        y: 0,
+        active: false,
+    },
+    shootStick: {
+        x: 0,
+        y: 0,
+        active: false,
+    },
 };
 
 const bullets = [];
@@ -136,17 +188,67 @@ const bulletColor = '#FFA500';
 let score = 0;
 let highScore = 0;
 let isPaused = false;
-let keys = {};
+let keys = inputState.keys;
 let mouseX = 0;
 let mouseY = 0;
 let clientMouseX = 0;
 let clientMouseY = 0;
 let elapsedTime = 0;
 let lastFrameTime = 0;
+let lastShotTime = -Infinity;
 
 let cameraShake = 0;
 let cameraShakeX = 0;
 let cameraShakeY = 0;
+
+function normalizeVector(x, y) {
+    const length = Math.hypot(x, y);
+    if (length === 0) return { x: 0, y: 0, length: 0 };
+    return {
+        x: x / length,
+        y: y / length,
+        length,
+    };
+}
+
+function getKeyboardMoveVector() {
+    let inputX = 0;
+    let inputY = 0;
+
+    if (keys['w'] || keys['W'] || keys['ArrowUp']) inputY -= 1;
+    if (keys['s'] || keys['S'] || keys['ArrowDown']) inputY += 1;
+    if (keys['a'] || keys['A'] || keys['ArrowLeft']) inputX -= 1;
+    if (keys['d'] || keys['D'] || keys['ArrowRight']) inputX += 1;
+
+    const normalized = normalizeVector(inputX, inputY);
+    return { x: normalized.x, y: normalized.y };
+}
+
+function getMoveVector() {
+    if (inputState.moveStick.active) {
+        return {
+            x: inputState.moveStick.x,
+            y: inputState.moveStick.y,
+        };
+    }
+
+    return getKeyboardMoveVector();
+}
+
+function updateAimPosition() {
+    if (inputState.shootStick.active) {
+        const aimDistance = Math.max(CONFIG.aimDistance, Math.min(canvas.width, canvas.height) * 0.35);
+        mouseX = player.x + inputState.shootStick.x * aimDistance;
+        mouseY = player.y + inputState.shootStick.y * aimDistance;
+        mouseX = Math.max(0, Math.min(canvas.width, mouseX));
+        mouseY = Math.max(0, Math.min(canvas.height, mouseY));
+        return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    mouseX = clientMouseX - rect.left;
+    mouseY = clientMouseY - rect.top;
+}
 
 function resetState() {
     player.x = canvas.width / 2;
@@ -168,11 +270,19 @@ function resetState() {
     cameraShake = 0;
     cameraShakeX = 0;
     cameraShakeY = 0;
+    lastShotTime = -Infinity;
 
     currentWeaponKey = 'pistol';
     unlockedWeapons = { pistol: true, shotgun: false };
     shotgunAmmo = 0;
 
+    inputState.mouseFireHeld = false;
+    inputState.moveStick = { x: 0, y: 0, active: false };
+    inputState.shootStick = { x: 0, y: 0, active: false };
+    resetJoystickKnob(moveStickKnob);
+    resetJoystickKnob(shootStickKnob);
+
+    syncClientMouseToCanvasPoint(canvas.width / 2, canvas.height / 2);
     updateScore();
     updateHud();
     hintInfoElement.textContent = '';
@@ -332,42 +442,36 @@ function applyCameraShake() {
     cameraShake *= CONFIG.camera.shakeDecay;
 }
 
-function updatePlaying(dt, timestamp) {
-    const rect = canvas.getBoundingClientRect();
-    mouseX = clientMouseX - rect.left;
-    mouseY = clientMouseY - rect.top;
+function updatePlaying(dt) {
+    updateAimPosition();
 
     if (isPaused) return;
 
     elapsedTime += dt;
     updateTimer();
 
-    let inputX = 0;
-    let inputY = 0;
-    if (keys['w'] || keys['W'] || keys['ArrowUp']) inputY -= 1;
-    if (keys['s'] || keys['S'] || keys['ArrowDown']) inputY += 1;
-    if (keys['a'] || keys['A'] || keys['ArrowLeft']) inputX -= 1;
-    if (keys['d'] || keys['D'] || keys['ArrowRight']) inputX += 1;
-
-    let length = Math.hypot(inputX, inputY);
-    if (length > 0) {
-        inputX /= length;
-        inputY /= length;
-    }
-
+    const moveVector = getMoveVector();
     let currentSpeed = player.speed;
     if (player.isDashing) {
         currentSpeed = CONFIG.player.dashSpeed;
     }
 
-    player.vx = inputX * currentSpeed;
-    player.vy = inputY * currentSpeed;
+    player.vx = moveVector.x * currentSpeed;
+    player.vy = moveVector.y * currentSpeed;
 
     player.x += player.vx;
     player.y += player.vy;
 
     player.x = Math.max(player.size / 2, Math.min(canvas.width - player.size / 2, player.x));
     player.y = Math.max(player.size / 2, Math.min(canvas.height - player.size / 2, player.y));
+
+    if (inputState.shootStick.active) {
+        updateAimPosition();
+    }
+
+    if (inputState.mouseFireHeld || inputState.shootStick.active) {
+        shootAt(mouseX, mouseY);
+    }
 
     if (player.isDashing) {
         player.dashTimer -= dt * 1000;
@@ -412,6 +516,7 @@ function updatePlaying(dt, timestamp) {
                     finalScoreElement.textContent = `Final Score: ${score}`;
                     gameState = GAME_STATE.GAME_OVER;
                     gameOverMenu.style.display = 'block';
+                    inputState.mouseFireHeld = false;
                 }
                 updateHud();
             }
@@ -552,19 +657,15 @@ function gameLoop(timestamp) {
     applyCameraShake();
 
     if (gameState === GAME_STATE.PLAYING) {
-        updatePlaying(dt, timestamp);
+        updatePlaying(dt);
     }
 
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-function shoot(e) {
+function shootAt(x, y) {
     if (gameState !== GAME_STATE.PLAYING || isPaused) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
 
     const dx = x - player.x;
     const dy = y - player.y;
@@ -573,9 +674,8 @@ function shoot(e) {
 
     const weapon = CONFIG.weapons[currentWeaponKey];
 
-    if (!shoot.lastShotTime) shoot.lastShotTime = 0;
     const now = performance.now();
-    if (now - shoot.lastShotTime < weapon.fireRateMs) return;
+    if (now - lastShotTime < weapon.fireRateMs) return;
 
     if (currentWeaponKey === 'shotgun') {
         if (!unlockedWeapons.shotgun || shotgunAmmo <= 0) return;
@@ -594,7 +694,6 @@ function shoot(e) {
             });
         }
     } else {
-        const angle = Math.atan2(dy, dx);
         bullets.push({
             x: player.x,
             y: player.y,
@@ -605,8 +704,16 @@ function shoot(e) {
         });
     }
 
-    shoot.lastShotTime = now;
+    lastShotTime = now;
     updateHud();
+}
+
+function shootFromPointerEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    syncClientMouseToCanvasPoint(x, y);
+    shootAt(x, y);
 }
 
 function tryDash() {
@@ -614,22 +721,20 @@ function tryDash() {
 
     let inputX = 0;
     let inputY = 0;
-    if (keys['w'] || keys['W'] || keys['ArrowUp']) inputY -= 1;
-    if (keys['s'] || keys['S'] || keys['ArrowDown']) inputY += 1;
-    if (keys['a'] || keys['A'] || keys['ArrowLeft']) inputX -= 1;
-    if (keys['d'] || keys['D'] || keys['ArrowRight']) inputX += 1;
 
-    let length = Math.hypot(inputX, inputY);
-    if (length === 0) {
+    const moveVector = getMoveVector();
+    const moveLength = Math.hypot(moveVector.x, moveVector.y);
+
+    if (moveLength > 0) {
+        inputX = moveVector.x / moveLength;
+        inputY = moveVector.y / moveLength;
+    } else {
         const dx = mouseX - player.x;
         const dy = mouseY - player.y;
-        length = Math.hypot(dx, dy);
-        if (length === 0) return;
-        inputX = dx / length;
-        inputY = dy / length;
-    } else {
-        inputX /= length;
-        inputY /= length;
+        const aimLength = Math.hypot(dx, dy);
+        if (aimLength === 0) return;
+        inputX = dx / aimLength;
+        inputY = dy / aimLength;
     }
 
     player.isDashing = true;
@@ -638,6 +743,16 @@ function tryDash() {
     player.invulnTimer = Math.max(player.invulnTimer, CONFIG.player.dashDurationMs);
     cameraShake = Math.min(CONFIG.camera.maxShake, cameraShake + 3);
 
+    updateHud();
+}
+
+function switchWeapon() {
+    if (!unlockedWeapons.shotgun) return;
+
+    currentWeaponKey = currentWeaponKey === 'pistol' ? 'shotgun' : 'pistol';
+    if (hintInfoElement.textContent === 'Shotgun Unlocked!') {
+        hintInfoElement.textContent = '';
+    }
     updateHud();
 }
 
@@ -662,6 +777,8 @@ function returnToMainMenu() {
 function togglePause() {
     if (gameState !== GAME_STATE.PLAYING && gameState !== GAME_STATE.PAUSED) return;
     isPaused = !isPaused;
+    inputState.mouseFireHeld = false;
+
     if (isPaused) {
         gameState = GAME_STATE.PAUSED;
         pauseMenu.style.display = 'block';
@@ -671,7 +788,125 @@ function togglePause() {
     }
 }
 
-canvas.addEventListener('click', shoot);
+function setJoystickKnob(knob, x, y) {
+    if (!knob) return;
+    const travelPercent = 30;
+    knob.style.left = `${50 + x * travelPercent}%`;
+    knob.style.top = `${50 + y * travelPercent}%`;
+    knob.style.transform = 'translate(-50%, -50%)';
+}
+
+function resetJoystickKnob(knob) {
+    if (!knob) return;
+    knob.style.left = '50%';
+    knob.style.top = '50%';
+    knob.style.transform = 'translate(-50%, -50%)';
+}
+
+function createJoystick(zone, knob, onChange, onRelease) {
+    if (!zone || !knob) return;
+
+    let pointerId = null;
+
+    function updateFromPointer(e) {
+        const base = zone.querySelector('.joystick-base');
+        const rect = base.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const maxRadius = rect.width / 2;
+
+        let x = (e.clientX - centerX) / maxRadius;
+        let y = (e.clientY - centerY) / maxRadius;
+        const length = Math.hypot(x, y);
+
+        if (length > 1) {
+            x /= length;
+            y /= length;
+        }
+
+        const active = Math.hypot(x, y) >= CONFIG.joystickDeadzone;
+        if (!active) {
+            x = 0;
+            y = 0;
+        }
+
+        setJoystickKnob(knob, x, y);
+        onChange({ x, y, active });
+    }
+
+    zone.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        pointerId = e.pointerId;
+        zone.setPointerCapture(pointerId);
+        updateFromPointer(e);
+    });
+
+    zone.addEventListener('pointermove', e => {
+        if (e.pointerId !== pointerId) return;
+        e.preventDefault();
+        updateFromPointer(e);
+    });
+
+    function releasePointer(e) {
+        if (pointerId !== null && e.pointerId !== pointerId) return;
+        pointerId = null;
+        resetJoystickKnob(knob);
+        onChange({ x: 0, y: 0, active: false });
+        if (onRelease) onRelease();
+    }
+
+    zone.addEventListener('pointerup', releasePointer);
+    zone.addEventListener('pointercancel', releasePointer);
+    zone.addEventListener('lostpointercapture', () => {
+        pointerId = null;
+        resetJoystickKnob(knob);
+        onChange({ x: 0, y: 0, active: false });
+        if (onRelease) onRelease();
+    });
+}
+
+createJoystick(moveStickZone, moveStickKnob, value => {
+    inputState.moveStick = value;
+});
+
+createJoystick(shootStickZone, shootStickKnob, value => {
+    inputState.shootStick = value;
+    if (value.active) {
+        updateAimPosition();
+        shootAt(mouseX, mouseY);
+    }
+});
+
+function handleControlButton(button, action) {
+    if (!button) return;
+
+    button.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        action();
+    });
+}
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    inputState.mouseFireHeld = true;
+    shootFromPointerEvent(e);
+});
+
+window.addEventListener('mouseup', () => {
+    inputState.mouseFireHeld = false;
+});
+
+canvas.addEventListener('mouseleave', () => {
+    inputState.mouseFireHeld = false;
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+window.addEventListener('blur', () => {
+    inputState.mouseFireHeld = false;
+    keys = inputState.keys = {};
+});
+
 window.addEventListener('keydown', e => {
     keys[e.key] = true;
 
@@ -688,20 +923,23 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'q' || e.key === 'Q') {
-        if (unlockedWeapons.shotgun) {
-            currentWeaponKey = currentWeaponKey === 'pistol' ? 'shotgun' : 'pistol';
-            if (hintInfoElement.textContent === 'Shotgun Unlocked!') {
-                hintInfoElement.textContent = '';
-            }
-            updateHud();
-        }
+        switchWeapon();
     }
 });
 window.addEventListener('keyup', e => keys[e.key] = false);
-canvas.addEventListener('mousemove', (e) => {
+canvas.addEventListener('mousemove', e => {
     clientMouseX = e.clientX;
     clientMouseY = e.clientY;
 });
+
+handleControlButton(mobileDashButton, () => {
+    if (gameState === GAME_STATE.PLAYING) {
+        tryDash();
+    }
+});
+handleControlButton(mobileWeaponButton, switchWeapon);
+handleControlButton(mobilePauseButton, togglePause);
+
 resumeButton.addEventListener('click', togglePause);
 restartButton.addEventListener('click', restartGame);
 pauseRestartButton.addEventListener('click', restartGame);
@@ -716,6 +954,7 @@ startButton.addEventListener('click', () => {
     gameState = GAME_STATE.PLAYING;
 });
 
+resizeCanvas();
 resetState();
 mainMenu.style.display = 'block';
 hudOverlay.style.display = 'none';
