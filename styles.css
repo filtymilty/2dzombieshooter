@@ -198,11 +198,9 @@ canvas {
     }
 
     canvas {
-        width: 100%;
-        max-width: none;
-        max-height: none;
-        flex: 1;
-        min-height: 0;
+        display: block;
+        max-width: calc(100vw - 8px);
+        max-height: calc(50dvh - 32px);
     }
 
     #hudOverlay {
